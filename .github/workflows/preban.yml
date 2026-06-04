@@ -6,7 +6,12 @@ on:
     - cron: '*/30 * * * *'
     # 毎朝8:45 JST = 23:45 UTC（前日）
     - cron: '45 23 * * *'
-  workflow_dispatch:  # 手動実行も可能
+  workflow_dispatch:
+    inputs:
+      morning:
+        description: '朝次サマリーモードで実行（必ず通知）'
+        type: boolean
+        default: false
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
@@ -47,7 +52,7 @@ jobs:
       - name: Run preban check
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          MORNING_MODE: ${{ (github.event.schedule == '45 23 * * *') && 'true' || 'false' }}
+          MORNING_MODE: ${{ (github.event.schedule == '45 23 * * *' || github.event.inputs.morning == 'true') && 'true' || 'false' }}
         run: |
           if [ "$MORNING_MODE" = "true" ]; then
             python scripts/preban.py --morning --seen-file seen_items.json
