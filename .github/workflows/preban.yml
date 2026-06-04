@@ -2,11 +2,14 @@ name: Preban Gunpla Check
 
 on:
   schedule:
-    # 30分おき（UTC）
+    # 30分おき（UTC）- Macがスリープ中でも動く
     - cron: '*/30 * * * *'
     # 毎朝8:45 JST = 23:45 UTC（前日）
     - cron: '45 23 * * *'
   workflow_dispatch:  # 手動実行も可能
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
   check:
@@ -25,7 +28,7 @@ jobs:
         uses: actions/cache@v4
         with:
           path: ~/.cache/ms-playwright
-          key: playwright-chromium-${{ runner.os }}
+          key: playwright-chromium-${{ runner.os }}-v1
 
       - name: Install dependencies
         run: |
@@ -33,7 +36,8 @@ jobs:
           playwright install chromium --with-deps
 
       - name: Restore seen_items
-        uses: actions/cache@v4
+        id: restore-seen
+        uses: actions/cache/restore@v4
         with:
           path: seen_items.json
           key: seen-items-${{ github.run_id }}
@@ -50,10 +54,11 @@ jobs:
           else
             python scripts/preban.py --seen-file seen_items.json
           fi
+          # ファイルがなければ空のJSONを作成（キャッシュ保存を確実にするため）
+          [ -f seen_items.json ] || echo '{}' > seen_items.json
 
       - name: Save seen_items
         uses: actions/cache/save@v4
-        if: always()
         with:
           path: seen_items.json
           key: seen-items-${{ github.run_id }}
