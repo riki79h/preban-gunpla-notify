@@ -1,0 +1,59 @@
+name: Preban Gunpla Check
+
+on:
+  schedule:
+    # 30分おき（UTC）
+    - cron: '*/30 * * * *'
+    # 毎朝8:45 JST = 23:45 UTC（前日）
+    - cron: '45 23 * * *'
+  workflow_dispatch:  # 手動実行も可能
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}
+
+      - name: Install dependencies
+        run: |
+          pip install playwright
+          playwright install chromium --with-deps
+
+      - name: Restore seen_items
+        uses: actions/cache@v4
+        with:
+          path: seen_items.json
+          key: seen-items-${{ github.run_id }}
+          restore-keys: |
+            seen-items-
+
+      - name: Run preban check
+        env:
+          NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
+          MORNING_MODE: ${{ (github.event.schedule == '45 23 * * *') && 'true' || 'false' }}
+        run: |
+          if [ "$MORNING_MODE" = "true" ]; then
+            python scripts/preban.py --morning --seen-file seen_items.json
+          else
+            python scripts/preban.py --seen-file seen_items.json
+          fi
+
+      - name: Save seen_items
+        uses: actions/cache/save@v4
+        if: always()
+        with:
+          path: seen_items.json
+          key: seen-items-${{ github.run_id }}
