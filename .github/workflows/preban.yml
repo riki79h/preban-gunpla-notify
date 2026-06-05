@@ -2,10 +2,12 @@ name: Preban Gunpla Check
 
 on:
   schedule:
-    # 30分おき（UTC）- Macがスリープ中でも動く
-    - cron: '*/30 * * * *'
+    # 1時間おき（GitHub Actionsは30分以下の間隔は信頼性が低いため1時間に変更）
+    - cron: '0 * * * *'
     # 毎朝8:45 JST = 23:45 UTC（前日）
     - cron: '45 23 * * *'
+    # 毎朝9:00 JST = 0:00 UTC（バックアップ用、8:45が失敗した場合の補完）
+    - cron: '0 0 * * *'
   workflow_dispatch:
     inputs:
       morning:
@@ -52,7 +54,7 @@ jobs:
       - name: Run preban check
         env:
           NTFY_TOPIC: ${{ secrets.NTFY_TOPIC }}
-          MORNING_MODE: ${{ (github.event.schedule == '45 23 * * *' || github.event.inputs.morning == 'true') && 'true' || 'false' }}
+          MORNING_MODE: ${{ (github.event.schedule == '45 23 * * *' || github.event.schedule == '0 0 * * *' || github.event.inputs.morning == 'true') && 'true' || 'false' }}
         run: |
           if [ "$MORNING_MODE" = "true" ]; then
             python scripts/preban.py --morning --seen-file seen_items.json
